@@ -1,0 +1,30 @@
+Description:
+  Creates an Amazon EC2 instance in a public subnet.
+
+Parameters:
+  CloudFormationVPC:
+    Description: The CloudFormation Stack that contains the VPC and subnets.
+    Type: String
+  KeyPair:
+    Description: Key pair to use.
+    Type: "AWS::EC2::KeyPair::KeyName"
+  AmazonMachineImageId:
+    Description: AMI Image ID
+    Type: String
+    Default: ami-0c6ebb5b9bce4ba15
+
+Resources:
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmazonMachineImageId
+      InstanceType: t2.micro
+      KeyName: !Ref KeyPair
+      NetworkInterfaces:
+        - GroupSet:
+          - !ImportValue 
+            'Fn::Sub': '${CloudFormationVPC}-SecurityGroupID'
+          AssociatePublicIpAddress: 'true'
+          DeviceIndex: '0'
+          SubnetId: !ImportValue 
+            'Fn::Sub': '${CloudFormationVPC}-PublicSubnetID'

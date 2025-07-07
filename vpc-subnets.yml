@@ -1,0 +1,132 @@
+Description:
+  This template creates a VPC.
+
+Parameters:
+  EnvironmentName:
+    Description: An environment name that will be prefixed to resource names. Examples are Development, Test, Staging, and Production
+    Type: String
+
+  VpcCIDR:
+    Description: Please enter the IP range (CIDR notation) for this VPC
+    Type: String
+    Default: 10.0.0.0/16
+  
+  PublicSubnetCIDR:
+    Description: Please enter the IP range (CIDR notation) for the Public Subnet
+    Type: String
+    Default: 10.0.0.0/24
+
+  PrivateSubnetCIDR:
+    Description: Please enter the IP range (CIDR notation) for the Private Subnet
+    Type: String
+    Default: 10.0.1.0/24
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+  
+  RouteTablePublic: 
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Join
+                 - ''
+                 - - 'PublicRT-'
+                   - !Ref EnvironmentName
+
+  RouteTableDefaultIPv4: 
+    Type: 'AWS::EC2::Route'
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTablePublic
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+
+  RouteTableAssociationPublic:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref SubnetPublic
+      RouteTableId: !Ref RouteTablePublic
+ 
+  SubnetPublic:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnetCIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Join
+                   - ''
+                   - - 'PublicSubnet-'
+                     - !Ref EnvironmentName
+ 
+  SubnetPrivate:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnetCIDR
+      Tags:
+        - Key: Name
+          Value: !Join
+                   - ''
+                   - - 'PrivateSubnet-'
+                     - !Ref EnvironmentName
+  
+  DefaultInstanceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Enable SSH access via port 22 IPv4
+      SecurityGroupIngress:
+        - Description: 'Allow SSH IPv4 IN'
+          IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: '0.0.0.0/0'
+
+Outputs:
+  InstanceSecurityGroup:
+    Description: The security group ID to use for public web servers
+    Value:
+      'Fn::GetAtt':
+        - DefaultInstanceSecurityGroup
+        - GroupId
+    Export:
+      Name: 
+        'Fn::Sub': '${AWS::StackName}-SecurityGroupID'
+  
+  LabPublicSubnet:
+    Description: VPC Public Subnet
+    Value: !Ref SubnetPublic
+    Export:
+      Name: 
+        'Fn::Sub': '${AWS::StackName}-PublicSubnetID'
+            
+  LabPrivateSubnet:
+    Description: VPC Private Subnet
+    Value: !Ref SubnetPrivate
+    Export:
+      Name: 
+        'Fn::Sub': '${AWS::StackName}-PrivateSubnetID'
